@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pressure Graph Inside Screen</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #1a2a6c, #2c3e50);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .computer {
+      background: #222;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+      position: relative;
+      width: 1100px;
+      border: 5px solid #000;
+    }
+
+    .screen {
+      background: linear-gradient(135deg, #a3c17f, #7fa96a);
+      border: 5px solid #333;
+      border-radius: 10px;
+      padding: 15px;
+      height: 720px;
+      position: relative;
+      overflow: auto;
+      color: #1a2a6c;
+      font-weight: bold;
+    }
+
+    .canvas-container {
+      width: 100%;
+      height: 500px;
+      border: 2px solid #000;
+      background: linear-gradient(135deg, #c6e5a4, #a3c17f);
+      position: relative;
+    }
+
+    #p1Canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .form-container {
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.6);
+      margin-top: 10px;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #1a2a6c;
+    }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 5px;
+      align-items: center;
+    }
+
+    .form-row label {
+      font-weight: bold;
+      min-width: 60px;
+    }
+
+    .form-row input {
+      width: 60px;
+      padding: 4px;
+      border-radius: 4px;
+      border: 1px solid #555;
+    }
+
+    .form-row button {
+      background: #27ae60;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-weight: bold;
+    }
+
+    .step-container {
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #6b9a46;
+    }
+
+    .section-title {
+      margin-top: 15px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #154214;
+      text-decoration: underline;
+    }
+
+    #startTimeInput, #intervalCountInput, #intervalMinInput {
+      margin-top: 10px;
+      font-weight: bold;
+      padding: 5px 10px;
+      width: 120px;
+      border-radius: 5px;
+      border: 1px solid #555;
+      color: #1a2a6c;
+      font-size: 16px;
+    }
+
+    .settings-row {
+      margin-top: 15px;
+      color: #1a2a6c;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="computer">
+    <div class="screen">
+      <div class="canvas-container">
+        <canvas id="p1Canvas" width="1000" height="500"></canvas>
+      </div>
+
+      <div class="form-container" id="formContainerP1">
+        <div class="section-title">Enter P1 Steps</div>
+      </div>
+      <button id="addStepBtnP1">+ Add P1 Step</button>
+
+      <div class="form-container" id="formContainerP2">
+        <div class="section-title">Enter P2 Steps</div>
+      </div>
+      <button id="addStepBtnP2">+ Add P2 Step</button>
+
+      <div class="form-container" id="formContainerP3">
+        <div class="section-title">Enter P3 Steps</div>
+      </div>
+      <button id="addStepBtnP3">+ Add P3 Step</button>
+
+      <div class="form-container" id="formContainerTemp">
+        <div class="section-title">Enter Temperature Steps</div>
+      </div>
+      <button id="addStepBtnTemp">+ Add Temp Step</button>
+
+      <div class="settings-row">
+        <label for="startTimeInput">Set Start Time (HH:MM):</label>
+        <input type="time" id="startTimeInput" value="08:00" step="60" />
+
+        <label for="intervalCountInput">Number of intervals:</label>
+        <input type="number" id="intervalCountInput" value="6" min="1" max="24" />
+
+        <label for="intervalMinInput">Interval (minutes):</label>
+        <input type="number" id="intervalMinInput" value="20" min="1" max="120" />
+      </div>
+
+      <button onclick="drawP1Graph()" style="margin-top: 20px; background:#1a2a6c;">Draw Graph</button>
+    </div>
+  </div>
+
+  <script>
+    const formContainerP1 = document.getElementById('formContainerP1');
+    const formContainerP2 = document.getElementById('formContainerP2');
+    const formContainerP3 = document.getElementById('formContainerP3');
+    const formContainerTemp = document.getElementById('formContainerTemp');
+
+    const addStepBtnP1 = document.getElementById('addStepBtnP1');
+    const addStepBtnP2 = document.getElementById('addStepBtnP2');
+    const addStepBtnP3 = document.getElementById('addStepBtnP3');
+    const addStepBtnTemp = document.getElementById('addStepBtnTemp');
+
+    const startTimeInput = document.getElementById('startTimeInput');
+    const intervalCountInput = document.getElementById('intervalCountInput');
+    const intervalMinInput = document.getElementById('intervalMinInput');
+
+    let stepCountP1 = 0, stepCountP2 = 0, stepCountP3 = 0, stepCountTemp = 0;
+
+    function createStepRow(container, stepNumber, type) {
+      const div = document.createElement('div');
+      div.className = 'step-container';
+      div.dataset.step = stepNumber;
+
+      if (type === 'temp') {
+        div.innerHTML = `
+          <div class="form-row">
+            <label>TStart:</label><input type="number" class="tStart" value="25" />
+            <label>TReach:</label><input type="number" class="tReach" value="150" />
+            <label>Duration:</label><input type="number" class="tRise" value="5" />
+            <label>Hold:</label><input type="number" class="tHold" value="10" />
+            <label>Noise %:</label><input type="number" class="tNoise" value="2" />
+            <label>Start Time:</label><input type="number" class="tStartTime" value="0" />
+            <button type="button" onclick="removeStep(this)">Remove</button>
+          </div>
+        `;
+      } else {
+        div.innerHTML = `
+          <div class="form-row">
+            <label>PStart:</label><input type="number" class="start" value="0" />
+            <label>PReach:</label><input type="number" class="reach" value="1500" />
+            <label>Duration:</label><input type="number" class="rise" value="5" />
+            <label>Hold:</label><input type="number" class="hold" value="10" />
+            <label>Noise %:</label><input type="number" class="noise" value="2" />
+            <label>Start Time:</label><input type="number" class="startTime" value="0" />
+            <button type="button" onclick="removeStep(this)">Remove</button>
+          </div>
+        `;
+      }
+
+      container.appendChild(div);
+    }
+
+    function removeStep(btn) {
+      btn.closest('.step-container').remove();
+    }
+
+    createStepRow(formContainerP1, ++stepCountP1);
+    createStepRow(formContainerP2, ++stepCountP2);
+    createStepRow(formContainerP3, ++stepCountP3);
+    createStepRow(formContainerTemp, ++stepCountTemp, 'temp');
+
+    addStepBtnP1.onclick = () => createStepRow(formContainerP1, ++stepCountP1);
+    addStepBtnP2.onclick = () => createStepRow(formContainerP2, ++stepCountP2);
+    addStepBtnP3.onclick = () => createStepRow(formContainerP3, ++stepCountP3);
+    addStepBtnTemp.onclick = () => createStepRow(formContainerTemp, ++stepCountTemp, 'temp');
+
+    function drawP1Graph() {
+      const canvas = document.getElementById("p1Canvas");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const marginX = 50, marginY = 30;
+      const w = canvas.width - marginX * 2;
+      const h = canvas.height - marginY * 2;
+      const maxPressure = 30000;
+      const maxTemp = 400;
+
+      const stepsP1 = [], stepsP2 = [], stepsP3 = [], stepsTemp = [];
+
+      formContainerP1.querySelectorAll('.step-container').forEach(div => {
+        stepsP1.push({
+          start: +div.querySelector('.start').value,
+          reach: +div.querySelector('.reach').value,
+          rise: +div.querySelector('.rise').value,
+          hold: +div.querySelector('.hold').value,
+          noise: +div.querySelector('.noise').value,
+          startTime: +div.querySelector('.startTime').value * 60
+        });
+      });
+
+      formContainerP2.querySelectorAll('.step-container').forEach(div => {
+        stepsP2.push({
+          start: +div.querySelector('.start').value,
+          reach: +div.querySelector('.reach').value,
+          rise: +div.querySelector('.rise').value,
+          hold: +div.querySelector('.hold').value,
+          noise: +div.querySelector('.noise').value,
+          startTime: +div.querySelector('.startTime').value * 60
+        });
+      });
+
+      formContainerP3.querySelectorAll('.step-container').forEach(div => {
+        stepsP3.push({
+          start: +div.querySelector('.start').value,
+          reach: +div.querySelector('.reach').value,
+          rise: +div.querySelector('.rise').value,
+          hold: +div.querySelector('.hold').value,
+          noise: +div.querySelector('.noise').value,
+          startTime: +div.querySelector('.startTime').value * 60
+        });
+      });
+
+      formContainerTemp.querySelectorAll('.step-container').forEach(div => {
+        stepsTemp.push({
+          start: +div.querySelector('.tStart').value,
+          reach: +div.querySelector('.tReach').value,
+          rise: +div.querySelector('.tRise').value,
+          hold: +div.querySelector('.tHold').value,
+          noise: +div.querySelector('.tNoise').value,
+          startTime: +div.querySelector('.tStartTime').value * 60
+        });
+      });
+
+      const allTimes = stepsP1.concat(stepsP2).concat(stepsP3).map(s => s.startTime + (s.rise + s.hold) * 60)
+        .concat(stepsTemp.map(t => t.startTime + (t.rise + t.hold) * 60));
+      const totalSec = Math.max(...allTimes, 60, (+intervalCountInput.value) * (+intervalMinInput.value) * 60);
+
+      function generatePoints(steps) {
+        const points = [];
+        const interval = 10;
+        steps.forEach(step => {
+          const riseSec = step.rise * 60;
+          const holdSec = step.hold * 60;
+          for (let t = 0; t <= riseSec; t += interval) {
+            let p = step.start + (step.reach - step.start) * (t / riseSec);
+            const noise = p * (step.noise / 100) * (Math.random() * 2 - 1);
+            points.push({ t: step.startTime + t, p: p + noise });
+          }
+          for (let t = interval; t <= holdSec; t += interval) {
+            const noise = step.reach * (step.noise / 100) * (Math.random() * 2 - 1);
+            points.push({ t: step.startTime + riseSec + t, p: step.reach + noise });
+          }
+        });
+        return points;
+      }
+
+      function generateTempPoints(steps) {
+        const points = [];
+        const interval = 10;
+        steps.forEach(step => {
+          const riseSec = step.rise * 60;
+          const holdSec = step.hold * 60;
+
+          // Rise phase with noise added
+          for (let t = 0; t <= riseSec; t += interval) {
+            let temp = step.start + (step.reach - step.start) * (t / riseSec);
+            let noise = temp * (step.noise / 100) * (Math.random() * 2 - 1);
+            points.push({ t: step.startTime + t, temp: temp + noise });
+          }
+
+          // Hold phase with noise added
+          for (let t = interval; t <= holdSec; t += interval) {
+            let noise = step.reach * (step.noise / 100) * (Math.random() * 2 - 1);
+            points.push({ t: step.startTime + riseSec + t, temp: step.reach + noise });
+          }
+        });
+        return points;
+      }
+
+      const pointsP1 = generatePoints(stepsP1);
+      const pointsP2 = generatePoints(stepsP2);
+      const pointsP3 = generatePoints(stepsP3);
+      const pointsTemp = generateTempPoints(stepsTemp);
+
+      ctx.beginPath();
+      ctx.moveTo(marginX, marginY);
+      ctx.lineTo(marginX, marginY + h);
+      ctx.lineTo(marginX + w, marginY + h);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = '#000';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 6; i++) {
+        const y = marginY + (h / 6) * i;
+        const label = Math.round(maxPressure * (1 - i / 6));
+        ctx.fillText(label + " PSI", marginX + 10, y + 4);
+      }
+
+      ctx.textAlign = 'left';
+      for (let i = 0; i <= 6; i++) {
+        const y = marginY + (h / 6) * i;
+        const label = Math.round(maxTemp * (1 - i / 6));
+        ctx.fillText(label + " °C", marginX + w + 5, y + 4);
+      }
+
+      const startTimeValue = startTimeInput.value || "08:00";
+      const [startHour, startMin] = startTimeValue.split(':').map(Number);
+      const startTimeSeconds = startHour * 3600 + startMin * 60;
+
+      const intervalCount = Math.max(1, +intervalCountInput.value);
+      const intervalMin = Math.max(1, +intervalMinInput.value);
+
+      ctx.textAlign = 'center';
+      for (let i = 0; i <= intervalCount; i++) {
+        const x = marginX + (w / intervalCount) * i;
+        const absTimeSec = startTimeSeconds + (intervalMin * 60) * i;
+        const hh = String(Math.floor(absTimeSec / 3600) % 24).padStart(2, '0');
+        const mm = String(Math.floor((absTimeSec % 3600) / 60)).padStart(2, '0');
+        ctx.fillText(`${hh}:${mm}`, x, marginY + h + 20);
+      }
+
+      function drawLine(points, color, prop, maxVal) {
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        points.forEach((pt, i) => {
+          const x = marginX + (pt.t / totalSec) * w;
+          const y = marginY + h * (1 - pt[prop] / maxVal);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+
+      drawLine(pointsP1, '#FF6384', 'p', maxPressure);
+      drawLine(pointsP2, '#36A2EB', 'p', maxPressure);
+      drawLine(pointsP3, '#008000', 'p', maxPressure);
+      drawLine(pointsTemp, '#FFA500', 'temp', maxTemp);
+
+      const legendStartX = marginX + w - 150;
+      let legendY = marginY + 10;
+      const lineHeight = 20;
+
+      function drawLegend(color, label) {
+        ctx.fillStyle = color;
+        ctx.fillRect(legendStartX, legendY, 20, 5);
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'left';
+        ctx.fillText(label, legendStartX + 25, legendY + 5);
+        legendY += lineHeight;
+      }
+
+      drawLegend('#FF6384', 'P1 Pressure');
+      drawLegend('#36A2EB', 'P2 Pressure');
+      drawLegend('#008000', 'P3 Pressure');
+      drawLegend('#FFA500', 'Temperature');
+    }
+  </script>
+</body>
+</html>
